@@ -21,8 +21,8 @@ def supe_Gaussian_bottom(x,y):
     rho=10
     alpha=0.1
     m=8
-    x_0=120.
-    y_0=120.
+    x_0=75.
+    y_0=75.
     
     T_exp=- ( alpha**(2*m) ) *(  (rho**(m))* ( (X-x_0)**(2*m)) +      (rho**(-m))* ( (Y-y_0)**(2*m))      )
     
@@ -34,43 +34,13 @@ def supe_Gaussian_bottom(x,y):
 
 ############ 
 def B_Hammack_2d(x, y):
-    """
-    2D spatial bottom profile (elliptical extension of the 1D tanh bump).
-    
-    Parameters
-    ----------
-    x, y : 1-D ndarray
-        Coordinate vectors (will be meshed with indexing='ij').
-    z0 : float
-        Maximum displacement amplitude.
-    b : float
-        Characteristic width / radius parameter.
-    a : float, optional
-        Stretching factor in x-direction. Default is 1.0.
-    c : float, optional
-        Stretching factor in y-direction. Default is 1.0.
-        
-    Returns
-    -------
-    H : 2-D ndarray
-        Spatial profile H(x,y) of shape (len(x), len(y)).
-        
-        
-    """
+
     a=1.0
     c=1.0
     b=10
     z0=0.3
     X, Y = np.meshgrid(x, y, indexing="ij")
-    '''
-    # Effective squared radial distance (ellipse when a != c)
-    r_eff_sq = (X / a) ** 2 + (Y / c) ** 2
-    
-    denom = 1.0 + np.tanh(0.4 * b ** 2)
-    numer = 1.0 + np.tanh(0.4 * (b ** 2 - r_eff_sq))
-    
-    return z0 * numer / denom
-    '''
+   
      #Rectangular (separable) extension: level sets are rounded rectangles.
     bx=b
     by=b
@@ -91,9 +61,9 @@ def Okada_vecrtical_dip_slip_U_3_func(x, y,A_typical):
     delta_o = 13 * np.pi / 180     # Dip angle
     d_o = 10 #(Missotakis)   #20  (Dyth waves generation)        #3  #(km) (Paper Linear Thoery)
     
-    W_o = 20    #  40                         #4
-    L_o =  40    # 60                           #6  #(Km)
-    D_amount = 6     #(m)?
+    W_o = 16    #  40                         #4
+    L_o =  20    # 60                           #6  #(Km)
+    D_amount =6    #(m)
     
     nu_o=0.27
     E_young=9.5
@@ -141,16 +111,19 @@ def Okada_vecrtical_dip_slip_U_3_func(x, y,A_typical):
     
     return np.array(result)
 
+
+
+
 def Okada_vecrtical_dip_slip_U_2_func(x, y,A_typical):
     X, Y = np.meshgrid(x, y, indexing="ij")
     
     # Fault parameters
     delta_o = 13 * np.pi / 180     # Dip angle
-    d_o = 10  #10 #(Missotakis)   #20  (Dyth waves generation)        #3  #(km) (Paper Linear Thoery)
+    d_o = 4  #10 #(Missotakis)   #20  (Dyth waves generation)        #3  #(km) (Paper Linear Thoery)
     
-    W_o = 20  #20      #  40                         #4
-    L_o = 40  #40    # 60                           #6  #(Km)
-    D_amount = 15# A_typical     #(m)?
+    W_o = 2  #20      #  40                         #4
+    L_o = 2  #40    # 60                           #6  #(Km)
+    D_amount = 10# A_typical     #(m)?
     
     nu_o=0.27
     E_young=9.5
