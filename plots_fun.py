@@ -13,7 +13,7 @@ Created on Thu Aug  6 14:06:47 2026
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
-from Bottom_profiles import Okada_vecrtical_dip_slip_U_3_func, Okada_vecrtical_dip_slip_U_2_func
+from Bottom_profiles import Okada_vecrtical_dip_slip_U_3_func, Okada_vecrtical_dip_slip_U_2_func, supe_Gaussian_bottom
 
 
 
@@ -25,19 +25,19 @@ from Bottom_profiles import Okada_vecrtical_dip_slip_U_3_func, Okada_vecrtical_d
 
 def plot_3d_B(L_x, L_y,  A_typical, H_typical):
 
-    N_x = 601                     # Number of grid points in x 
-    Dx = L_x / (N_x - 1)          # Grid spacing in x
-    x = np.linspace(0, L_x, N_x)
+    Nx = 1001                     # Number of grid points in x 
+    Dx = L_x / (Nx - 1)          # Grid spacing in x
+    x = np.linspace(0, L_x, Nx)
 
-    N_y = 601                     # Number of grid points in y
-    Dy = L_y / (N_y - 1)          # Grid spacing in y
-    y = np.linspace(0, L_y, N_y)
+    Ny = 1001                     # Number of grid points in y
+    Dy = L_y / (Ny - 1)          # Grid spacing in y
+    y = np.linspace(0, L_y, Ny)
 
     X, Y = np.meshgrid(x, y, indexing="ij")
     deep_scale = H_typical / 1000.0   # Convert from meters to kilometers for the fault model
     B = (1.0 / H_typical) * Okada_vecrtical_dip_slip_U_3_func(deep_scale * (x - L_x / 2) + 20.0,   deep_scale * (y - L_y / 2),   A_typical)
     # B = (1.0 / H_typical) *   Okada_vecrtical_dip_slip_U_2_func(deep_scale * (x - L_x / 2) + 20.0,   deep_scale * (y - L_y / 2),   A_typical)
-
+    # B= (1.0 / H_typical)*supe_Gaussian_bottom(x,y)
 
     fig = plt.figure(figsize=(10, 6))
     
@@ -61,28 +61,42 @@ def plot_3d_B(L_x, L_y,  A_typical, H_typical):
                )
     plt.show()
     
-  
-  
-def plot_3d(x, y, zeta_choosen, t_phyiscal, H_0, 
-                         points, point_labels):
-    """
-    Plot 3D surface + contour with marked locations.
     
-    Parameters
-    ----------
-    points : list of tuples, optional
-        List of (x_i, y_i) coordinates, e.g. [(30,40), (60,70), (90,50), (120,80)]
-    point_labels : list of str, optional
-        Labels for each point, e.g. ['P_1', 'P_2', 'P_3', 'P_4']
+    
+    
+    
+    
+def plot_3d(x, y, zeta_choosen, t_phyiscal, H_0,
+            points, point_labels):
     """
+    Plot 3D surface + contour.
+    On the 3D surface only, values in [-tol, +tol] are shown in ocean blue.
+    The legend uses the exact same color as the surface.
+    """
+    from matplotlib import colors as mcolors
+    from matplotlib.patches import Patch
+
     X, Y = np.meshgrid(x, y, indexing='ij')
     fig = plt.figure(figsize=(14, 7))
     z_data = H_0 * zeta_choosen
 
+    tol = 10**(-3)
+    exponent = int(round(np.log10(tol)))
+    ocean_blue = '#0077be'
+
     # --- 3D Surface ---
     ax1 = fig.add_subplot(121, projection='3d')
-    surf1 = ax1.plot_surface(
-        X, Y, z_data, cmap='jet', rstride=4, cstride=4, edgecolor='none'
+
+    norm = mcolors.Normalize(vmin=np.min(z_data), vmax=np.max(z_data))
+    cmap = plt.get_cmap('jet')
+    facecolors = cmap(norm(z_data))
+    in_band = np.abs(z_data) <= tol
+    facecolors[in_band] = mcolors.to_rgba(ocean_blue, alpha=1.0)
+
+    # shade=False keeps the surface color identical to the legend color.
+    ax1.plot_surface(
+        X, Y, z_data, facecolors=facecolors,
+        rstride=4, cstride=4, edgecolor='none', shade=False
     )
     ax1.set_title(f'Surface Profile at t={t_phyiscal/60:.3f} min')
     ax1.set_xlabel('x')
@@ -92,54 +106,52 @@ def plot_3d(x, y, zeta_choosen, t_phyiscal, H_0,
     ax1.view_init(30, 0)
     ax1.set_zticks(np.linspace(np.min(z_data), np.max(z_data), 5))
 
+    legend_elem = Patch(
+        facecolor=ocean_blue,
+        edgecolor='none',
+        label=rf'$|\zeta| \leq 10^{{{exponent}}}$ m'
+    )
+    ax1.legend(handles=[legend_elem], loc='upper right', fontsize=10)
+
     # --- Contour with Points ---
     ax2 = fig.add_subplot(122)
 
-    levels = np.linspace(np.min(z_data), np.max(z_data), 20)
+    levels = np.linspace(np.min(z_data), np.max(z_data), 16)
     levels = levels[np.abs(levels) > 1e-4]
     cf = ax2.contour(X, Y, z_data, levels=levels, cmap='jet')
+
     ax2.set_title(f'Contour at t={t_phyiscal/60:.3f} min')
     ax2.set_xlabel('x')
     ax2.set_ylabel('y')
     ax2.set_aspect('equal')
 
-    # Mark locations with small squares and labels
     if points is not None:
         if point_labels is None:
             point_labels = [f'P_{i+1}' for i in range(len(points))]
-        
         for (px, py), label in zip(points, point_labels):
-            # Small black square marker with white edge
-            ax2.plot(px, py, 's', color='black', markersize=6, 
+            ax2.plot(px, py, 's', color='black', markersize=6,
                      markeredgecolor='white', markeredgewidth=0.5, zorder=5)
-            # Label with offset and white background box
-            ax2.annotate(label, xy=(px, py), xytext=(6, 6),
-                        textcoords='offset points', fontsize=10,
-                        color='black', fontweight='bold',
-                        bbox=dict(boxstyle='round,pad=0.2', 
-                                  facecolor='white', alpha=0.8, edgecolor='none'))
+            ax2.annotate(
+                label, xy=(px, py), xytext=(6, 6),
+                textcoords='offset points', fontsize=10,
+                color='black', fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='white',
+                          alpha=0.8, edgecolor='none')
+            )
 
     cbar = plt.colorbar(cf, ax=ax2, shrink=0.8, ticks=cf.levels)
     cbar.update_ticks()
 
     plt.tight_layout()
-    plt.savefig('3d_tsunami_points.pdf', format='pdf', 
+    plt.savefig('3d_tsunami_points.pdf', format='pdf',
                 bbox_inches='tight', pad_inches=0.1)
     plt.show()
-
-
-
-
-def plot_passive_Filter_T1(x, y, t, V1, V2, loc, H_typical):
+  
+    
+    
+def plot_passive_Filter_T1(x, y, t, v1, v2, loc, H_typical):
   # 1. Find the nearest grid indices for the location
-  idx_x = np.abs(x - loc[0]).argmin()
-  idx_y = np.abs(y - loc[1]).argmin()
-
-  # 2. Extract time-series data at the location
-  v1 = V1[:, idx_x, idx_y]
-  v2 = V2[:, idx_x, idx_y]
- 
-
+  
   # 3. Set up a single plot layout  passive approach
   fig, ax = plt.subplots(figsize=(8, 5))
 
@@ -164,23 +176,16 @@ def plot_passive_Filter_T1(x, y, t, V1, V2, loc, H_typical):
 
   plt.show()
   
-def plot_tensors_at_locations_T1(x, y, t, V1, V2,V3,V4, loc, H_typical):
+def plot_tensors_at_locations_T1(x, y, t, v1, v2,v3,v4, loc, H_typical):
   # 1. Find the nearest grid indices for the location
-  idx_x = np.abs(x - loc[0]).argmin()
-  idx_y = np.abs(y - loc[1]).argmin()
-
-  # 2. Extract time-series data at the location
-  v1 = V1[:, idx_x, idx_y]
-  v2 = V2[:, idx_x, idx_y]
-  v3=V3[:, idx_x, idx_y]
-  v4=V4[:, idx_x, idx_y]
+ 
 
   # 3. Set up 1 single plot layout
   fig, ax = plt.subplots(figsize=(8, 5))
 
   ax.plot(t, H_typical * v1, 'b-', linewidth=2.0, label='Boussinesq filter')
   ax.plot(t, H_typical * v3, color='#000000', linestyle='--', linewidth=2.0, label='Linear Euler')
-  ax.plot(t, H_typical * v4, color='#2ca02c', linestyle=':',  linewidth=2.0, label='Linear Boussinesq')
+  ax.plot(t, H_typical * v4, color='#2ca02c', linestyle=':', marker='o', markersize=4, markevery=100,  linewidth=2.0, label='Linear Boussinesq')
   ax.set_title(f'Tide Gauge at $p_4=$({loc[0]}, {loc[1]})')
   ax.set_xlabel('$t$ ')
   ax.set_ylabel('Surface elevations (m)')
@@ -204,7 +209,7 @@ def plot_tensors_at_locations_T1(x, y, t, V1, V2,V3,V4, loc, H_typical):
 
   ax.plot(t, H_typical * v2, 'r--', linewidth=2.0, label=r'Passive approach' )
   ax.plot(t, H_typical * v3, color='#000000', linestyle='--', linewidth=2.0, label='Linear Euler')
-  ax.plot(t, H_typical * v4, color='#2ca02c', linestyle=':',  linewidth=2.0, label='Linear Boussinesq')
+  ax.plot(t, H_typical * v4, color='#2ca02c', linestyle=':',  marker='o', markersize=4, markevery=100, linewidth=2.0, label='Linear Boussinesq')
   ax.set_title(f'Tide Gauge at $p_4=$({loc[0]}, {loc[1]})')
   ax.set_xlabel('$t$ ')
   ax.set_ylabel('Surface elevations (m)')
@@ -227,19 +232,14 @@ def plot_tensors_at_locations_T1(x, y, t, V1, V2,V3,V4, loc, H_typical):
 
 def plot_relative_erro_T1(x, y, t, V1, V2, loc):
   # 1. Find the nearest grid indices for the location
-  idx_x = np.abs(x - loc[0]).argmin()
-  idx_y = np.abs(y - loc[1]).argmin()
-
-  # 2. Extract time-series data at the location
-  v1 = V1[:, idx_x, idx_y]
-  v2 = V2[:, idx_x, idx_y]
  
   fig, ax = plt.subplots(figsize=(8, 5))
 
   # --- Plot: Single Location ---
+  R=np.abs(V1 - V2) / np.max(np.abs(V1))
   ax.plot(
       t,
-      np.abs(v1 - v2) / np.max(np.abs(v1)),
+      R,
       'k--',
       linewidth=1.2,
       label='Relative Error',
@@ -259,27 +259,106 @@ def plot_relative_erro_T1(x, y, t, V1, V2, loc):
       bbox_inches='tight',
       pad_inches=0.1,
   )
+  return np.max(R)
   plt.show()
 
 
 
 
 
+def plot_static_Linear_Euler(x,y,x_mid_idx, y_mid_idx,V1,V2,V3,V4,V5,V6,H_typical, model):
+    X, Y = np.meshgrid(x, y, indexing="ij")
 
 
+    fig4, (ax5, ax6) = plt.subplots(1, 2, figsize=(12, 4.5))
+    
+    # (a) Slice along X direction
+    ax5.plot(x, H_typical*V1,"r-",label=rf"Static {model}" )
+    ax5.plot(x, H_typical*V2, color='#2ca02c', linestyle=':', marker='o', markersize=2.5, markevery=10,label=rf" Static Linear  {model}" )
+    ax5.plot(x, H_typical*V3, color='#000000', linestyle='--',label=rf" Linear  Euler" )
+
+    ax5.set_title(f"Slice at y={int(y[y_mid_idx])} ")
+    ax5.set_xlabel("x")
+    ax5.set_ylabel(r" Surface elevations $\;$(m)")
+    ax5.grid(True, linestyle=":")
+    ax5.legend()
+
+    # (b) Slice along Y direction
+    ax6.plot(y, H_typical*V4, "r-",label=rf"Static {model}" )
+    ax6.plot(y, H_typical*V5,  color='#2ca02c', linestyle=':', marker='o', markersize=2.5, markevery=10,label=rf" Static Linear  {model} " )
+    ax6.plot(y, H_typical*V6, color='#000000', linestyle='--',label=rf" Linear  Euler" )
+
+    ax6.set_title(f"Slice at x={int(x[x_mid_idx])} " )
+    ax6.grid(True, linestyle=":")
+    ax6.set_xlabel("y")
+    ax5.set_ylabel(r" Surface elevations $\;$(m)")
+    ax6.legend()
+
+    plt.tight_layout()
+    plt.savefig("my_slices_statuc_time_2s.pdf", 
+            format="pdf", 
+            bbox_inches="tight",  # Ensures no labels get cut off
+            pad_inches=0.1        # Adds a tiny bit of breathing room around the plot
+           )
+    plt.show()
+
+
+
+def plot_relative_error_linear_nonlinear_T1(t, eta_tensor_stat,
+                                           zeta_bous_tensor, B):
+    Nt = len(t)
+
+    if (Nt == 0 or eta_tensor_stat.shape != zeta_bous_tensor.shape
+            or eta_tensor_stat.shape != (Nt,) + B.shape):
+        raise ValueError("The solution histories, time array and bottom must match.")
+
+    R = np.empty(Nt, dtype=float)
+    max_linear = 0.0
+
+    # Process one spatial snapshot at a time.
+    for n in range(Nt):
+        linear = zeta_bous_tensor[n]
+        difference = eta_tensor_stat[n] + B - linear
+
+        R[n] = np.max(np.abs(difference))
+        linear_peak = np.max(np.abs(linear))
+
+        if not (np.isfinite(R[n]) and np.isfinite(linear_peak)):
+            raise ValueError(f"Non-finite solution values at time index {n}.")
+
+        max_linear = max(max_linear, linear_peak)
+
+    if max_linear == 0.0:
+        raise ValueError("The linear solution is zero everywhere at all times.")
+
+    # Normalize by the maximum over all times and spatial points.
+    R /= max_linear
+    max_error = float(np.max(R))
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(t, R, 'k--', linewidth=1.2, label='Relative error')
+
+    ax.set_xlabel('$t$')
+    ax.set_ylabel('Relative error')
+    ax.set_xlim(t[0], t[-1])
+    ax.grid(True, linestyle=':', alpha=0.6)
+    ax.legend()
+
+    plt.tight_layout()
+    plt.savefig(
+        'T1_global_relative_error_linear_nonlinear.pdf',
+        format='pdf', bbox_inches='tight', pad_inches=0.1
+    )
+    plt.show()
+
+    return max_error
 # # # # # # # # # # # # # # # # # # # # # # # # # #  Test 2# # # # # # # # # # # # # # # # # # # # # # 
 
 
 
-def plot_tensors_at_locations_T2(x, y, t, V1, V2, loc, H_typical,t_eps1):
+def plot_tensors_at_locations_T2(x, y, t, v1, v2, loc, H_typical,t_eps1):
   # 1. Find the nearest grid indices for the location
-  idx_x = np.abs(x - loc[0]).argmin()
-  idx_y = np.abs(y - loc[1]).argmin()
-
-  # 2. Extract time-series data at the location
-  v1 = V1[:, idx_x, idx_y]
-  v2 = V2[:, idx_x, idx_y]
-
+ 
   # 3. Set up a single plot layout
   fig, ax = plt.subplots(figsize=(8, 5))
 
@@ -312,7 +391,7 @@ def plot_tensors_at_locations_T2(x, y, t, V1, V2, loc, H_typical,t_eps1):
 
   # Save as PDF
   plt.savefig(
-      '1s_Bous_static_Kinematic.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1
+      '10s_Bous_static_Kinematic.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1
   )
 
   plt.show()
@@ -321,15 +400,9 @@ def plot_tensors_at_locations_T2(x, y, t, V1, V2, loc, H_typical,t_eps1):
 
 
 
-def plot_relative_erro_T2(x, y, t, V1, V2,mask,loc):
+def plot_relative_erro_T2(x, y, t, v1, v2,mask,loc):
   # 1. Find the nearest grid indices for the location
-  idx_x = np.abs(x - loc[0]).argmin()
-  idx_y = np.abs(y - loc[1]).argmin()
-
-  # 2. Extract time-series data at the location
-  v1 = V1[mask, idx_x, idx_y]
-  v2 = V2[mask, idx_x, idx_y]
-
+  
   fig, ax = plt.subplots(figsize=(8, 5))
 
   # --- Plot: Single Location ---
@@ -358,8 +431,8 @@ def plot_relative_erro_T2(x, y, t, V1, V2,mask,loc):
       bbox_inches='tight',
       pad_inches=0.1,
   )
-  return R
   plt.show()
+  return R
 
 
 
@@ -506,25 +579,16 @@ def plot_max_Es_Bous_vs_teps_log(t_eps, max_E_bous_values, s, T_f=None):
 # # # # # # # # # # # # # # # # # # # # # # # # # #  Test 3# # # # # # # # # # # # # # # # # # # # # # 
 
 
-def plot_tensors_at_locations_T3(x, y, t, V1, V2,V3, loc, H_typical):
-  # 1. Find the nearest grid indices for the location
-  idx_x = np.abs(x - loc[0]).argmin()
-  idx_y = np.abs(y - loc[1]).argmin()
-
-  # 2. Extract time-series data at the location
-  v1 = V1[:, idx_x, idx_y]
-  v2 = V2[:, idx_x, idx_y]
-  v3=V3[:, idx_x, idx_y]
-  # v4=V4[:, idx_x, idx_y]
+def plot_tensors_at_locations_T3_compa(x, y, t, v1,v3,v4, loc, H_typical):
 
  
   # 3. Set up a single plot layout
   fig, ax = plt.subplots(figsize=(8, 5))
 
   ax.plot(t, H_typical * v1, 'b-', linewidth=2.0, label='Shallow-water')
-  ax.plot(t, H_typical * v2, color='#d62728', linestyle='-.',  marker='o', markersize=4, markevery=20, linewidth=2.0, label='Shallow-water: MacCormack')
+  # ax.plot(t, H_typical * v2, color='#d62728', linestyle='-.',  marker='o', markersize=4, markevery=20, linewidth=2.0, label='Shallow-water: MacCormack')
   ax.plot(t, H_typical * v3, color='#000000', linestyle='--', linewidth=2.0, label='Linear Euler')
-  # ax.plot(t, H_typical * v4, color='#2ca02c', linestyle=':',  linewidth=2.0, label='Linear shallow-Water')
+  ax.plot(t, H_typical * v4, color='#2ca02c', linestyle=':',  marker='o', markersize=4, markevery=100, linewidth=2.0, label='Linear shallow-Water')
   ax.set_title(f'Tide Gauge at $p_4=$({loc[0]}, {loc[1]})')
   ax.set_xlabel('$t$ ')
   ax.set_ylabel('Surface elevations (m)')
@@ -607,7 +671,7 @@ def plot_relative_error_4locations_SW(t_eps, max_errors_dict):
 
 
 
-def plot_max_Es_Bous_vs_teps_log_sw(t_eps, max_E_bous_values, s, T_f=None):
+def plot_max_Es_vs_teps_log_sw(t_eps, max_E_bous_values, s, T_f=None):
    t_eps = np.asarray(t_eps)
    
    # Sort the data so x-axis goes from LARGE to SMALL
@@ -683,6 +747,48 @@ def plot_max_Es_Bous_vs_teps_log_sw(t_eps, max_E_bous_values, s, T_f=None):
    plt.show()
 
 
+
+
+
+def plot_tensors_at_locations_T3(x, y, t, v1, v2, loc, H_typical,t_eps1):
+  # 1. Find the nearest grid indices for the location
+ 
+  # 3. Set up a single plot layout
+  fig, ax = plt.subplots(figsize=(8, 5))
+
+  ax.plot(t, H_typical * v1, 'b-', linewidth=2.0, label='Static SW')
+  ax.plot(t, H_typical * v2, 'r--', linewidth=2.0, label=rf"Kinematic  SW: $t_\epsilon = {t_eps1:.2f}$" )
+ 
+  ax.set_title(f'Tide Gauge at $p_1=$({loc[0]}, {loc[1]})')
+  ax.set_xlabel('$t$ ')
+  ax.set_ylabel('Surface elevations (m)')
+  ax.set_xlim(t[0], t[-1])
+# Vertical line — no label here
+  ax.axvline(x=t_eps1, color='k', linestyle='--', linewidth=1.5)
+
+# Label placed below the x-axis
+  ax.annotate(
+    r'$t_\epsilon$',
+    xy=(t_eps1+0.4, 0.045),
+    xycoords=('data', 'axes fraction'),
+    xytext=(0, -15),
+    textcoords='offset points',
+    ha='center',
+    va='top',
+    fontsize=12,
+    color='k'
+   )  
+  ax.grid(True, linestyle=':', alpha=0.6)
+  ax.legend()
+
+  plt.tight_layout()
+
+  # Save as PDF
+  plt.savefig(
+      '1s_Bous_static_Kinematic.pdf', format='pdf', bbox_inches='tight', pad_inches=0.1
+  )
+
+  plt.show()
 
 
 
