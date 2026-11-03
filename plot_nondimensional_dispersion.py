@@ -33,14 +33,6 @@ ax.set_ylim(0, 1.1)
 ax.legend(loc='lower left', fontsize=11)
 ax.grid(True, alpha=0.3)
 
-  
-# # Optional: annotate the formulas
-# ax.text(3.5, 0.75,
-#         r'$C^2_{\rm Euler}=\dfrac{\tanh\xi}{\xi}$' + '\n'
-#         r'$C^2_{\rm NSW}=1$' + '\n'
-#         r'$C^2_{\rm Bouss}=\dfrac{1}{1+\xi^2/3}$',
-#         fontsize=11, verticalalignment='top',
-#         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4))
 
   
 plt.tight_layout()
